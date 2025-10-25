@@ -14,6 +14,7 @@ export default function Upload({token, getAudio, upload, setUpload, state, setSt
   const [files, setFiles] = useState(null)
   const [prefix, setPrefix] = useState('')
   const [refPrefix, setRefPrefix] = useState('')
+  const [threshold, setThreshold] = useState(5.0)
 
   const [length, setLength] = useState(0)
   const [progress, setProgress] = useState(0)
@@ -63,7 +64,7 @@ export default function Upload({token, getAudio, upload, setUpload, state, setSt
               headers: {Authorization: "Bearer " + token},
               body: form
           }
-        const response = await fetch(`http://localhost:8000/api/upload-audio?downsample=${downsample}&denoise=${denoise}&segment=${segment}&predict=${predict}`, requestOptions)
+        const response = await fetch(`http://localhost:8000/api/upload-audio?downsample=${downsample}&denoise=${denoise}&segment=${segment}&predict=${predict}&threshold=${threshold}`, requestOptions)
         if (response.ok) {
           setProgress(progress => progress + 1)
         }
@@ -214,6 +215,40 @@ export default function Upload({token, getAudio, upload, setUpload, state, setSt
                 </span>
               </form> }
             </div>
+            
+            {/* Threshold Component - Outside forms but inside main container */}
+            <div style={{
+              margin: '10px 0 15px 0',
+              padding: '12px 20px', 
+              backgroundColor: '#f8f9fa', 
+              border: '1px solid #dee2e6', 
+              borderRadius: '8px',
+              width: '90%',
+              alignSelf: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+            }}>
+              <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'}}>
+                <label style={{fontSize: '14px', fontWeight: '600', color: '#495057'}}>Threshold: {threshold}</label>
+                <input 
+                  type='range' 
+                  value={threshold} 
+                  onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                  min='1' 
+                  max='9' 
+                  step='0.1'
+                  style={{
+                    width: '200px', 
+                    height: '20px',
+                    cursor: 'pointer',
+                    background: '#e9ecef',
+                    borderRadius: '10px',
+                    outline: 'none'
+                  }}
+                />
+                <div style={{fontSize: '12px', color: '#6c757d'}}>Range: 1.0 - 9.0</div>
+              </div>
+            </div>
+            
           <div style={{margin: '20px', alignSelf: 'center', display: 'flex'}} onClick={() => setUpload(!upload)}>{!upload ? "Upload Audio" : <div><img className={styles.cross} alt="" src={cross_icon}></img></div>}</div>
         </div>
       : null}

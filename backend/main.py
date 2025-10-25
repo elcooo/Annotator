@@ -208,9 +208,10 @@ async def upload_audio(files: list[UploadFile],
                        downsample: bool = True, 
                        denoise: bool = True,
                        segment: bool = True,
-                       predict: bool = False):
+                       predict: bool = False,
+                       threshold: float = 4.5):
 
-    response = await audio_services.upload_audio(user, db, files, downsample, denoise, segment, predict)
+    response = await audio_services.upload_audio(user, db, files, downsample, denoise, segment, predict, threshold)
     return response
 
 @app.get("/api/get-audio-files/{tag}", status_code=200)

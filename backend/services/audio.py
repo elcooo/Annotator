@@ -38,13 +38,13 @@ async def add_audio(user: schemas.User, db: orm.Session, audio: schemas.AudioCre
     db.refresh(audio)
     return schemas.Audio.from_orm(audio)
 
-async def generate_segments(file: UploadFile, audio: np.ndarray, sampleRate: int, data: dict, predictRegion: bool, user: schemas.User, db: orm.Session):
+async def generate_segments(file: UploadFile, audio: np.ndarray, sampleRate: int, data: dict, predictRegion: bool, user: schemas.User, db: orm.Session, threshold: float = 4.5):
     refs = await get_refs(user)
     audio_data = {}
     audio_data[file.filename] = (audio, sampleRate)
     files = [file.filename]
     print("Generating segments")
-    segments, seg_regions, seg_correlations = get_segs(user.id, files, audio_data, refs)
+    segments, seg_regions, seg_correlations = get_segs(user.id, files, audio_data, refs, method='w', threshold=threshold)
     data = models.Audio(**data, owner_id=user.id)
     for index, name in enumerate(segments.keys()):
         segment = {
@@ -73,7 +73,7 @@ async def generate_segments(file: UploadFile, audio: np.ndarray, sampleRate: int
             await predict(name, user, db)
             # await prediction(name, user, db)
 
-async def upload_audio(user: schemas.User, db: orm.Session, files: list[UploadFile] = File(...), downsample: bool = True, denoise: bool = True, genSegments: bool = True, predictRegion: bool = False):
+async def upload_audio(user: schemas.User, db: orm.Session, files: list[UploadFile] = File(...), downsample: bool = True, denoise: bool = True, genSegments: bool = True, predictRegion: bool = False, threshold: float = 4.5):
     user_classes = db.query(models.Settings.labels).filter_by(owner_id=user.id).all()
 
     classes = []
@@ -121,7 +121,7 @@ async def upload_audio(user: schemas.User, db: orm.Session, files: list[UploadFi
                 # Generate 5 second segments
                 if genSegments:
                     print('Segment...')
-                    await generate_segments(file, audio, sampleRate, data, predictRegion, user, db)
+                    await generate_segments(file, audio, sampleRate, data, predictRegion, user, db, threshold)
 
 
                 return fastapi.HTTPException(status_code=200, detail=f"File {file.filename} uploaded successfully")
