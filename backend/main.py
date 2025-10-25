@@ -453,7 +453,10 @@ async def getChildren(parent:str, user: schemas.User = fastapi.Depends(user_serv
 # Classifier Test Training and Export Endpoints
 @app.get('/api/test/train', status_code=200)
 async def train(background_task: BackgroundTasks ,user: schemas.User = fastapi.Depends(user_services.get_current_user), db: orm.Session = fastapi.Depends(user_services.get_db)):
+    print(f"[TRAIN ENDPOINT] Starting training process for user {user.id}")
+    print(f"[TRAIN ENDPOINT] User email: {user.email}")
     stats = await classifier.classifier(user, db, background_task)
+    print(f"[TRAIN ENDPOINT] Training process initiated successfully")
     return stats
 
 @app.get('/api/test/predict', status_code=200)

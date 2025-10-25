@@ -37,8 +37,13 @@ async def change_status(start: str, end: str, status: str, user: schemas.User, d
 
 
 async def export(user: schemas.User, db: orm.Session, start:str='2020-01-01', end:str='2200-01-01'):
+    print(f"[EXPORT] Starting export process for user {user.id}")
+    print(f"[EXPORT] Date range: {start} to {end}")
+    
     await create_validation(user, db)
     segments = db.query(models.Segments).filter_by(owner_id=user.id).all() # .filter(models.Segments.status == 'Complete')
+    print(f"[EXPORT] Found {len(segments)} total segments in database")
+    
     startDate = dt.datetime(*list(map(int, start.split('-'))))
     endDate = dt.datetime(*list(map(int, end.split('-'))))
 
@@ -47,8 +52,12 @@ async def export(user: schemas.User, db: orm.Session, start:str='2020-01-01', en
 
     MODEL_PATH = f'./static/{user.id}/model'
     if not os.path.exists(MODEL_PATH):
+        print(f"[EXPORT] Creating model directory: {MODEL_PATH}")
         os.makedirs(MODEL_PATH, exist_ok=True)
+    else:
+        print(f"[EXPORT] Model directory already exists: {MODEL_PATH}")
 
+    print(f"[EXPORT] Filtering segments by date range...")
     for segment in segments:
         dateCreated = dt.datetime(*list(map(int, segment.date_created.split('-'))))
 
@@ -60,14 +69,26 @@ async def export(user: schemas.User, db: orm.Session, start:str='2020-01-01', en
                    segment.end]
             training_set.append(seg)
 
+    print(f"[EXPORT] Filtered to {len(training_set)} segments in date range")
     df_training = pd.DataFrame(training_set, columns=columns)
-    df_training.to_csv(f"./static/{user.id}/model/annotations.csv")
-    return df_training.to_dict()
+    
+    annotations_path = f"./static/{user.id}/model/annotations.csv"
+    print(f"[EXPORT] Saving annotations to: {annotations_path}")
+    df_training.to_csv(annotations_path)
+    print(f"[EXPORT] Annotations saved successfully")
+    
+    result = df_training.to_dict()
+    print(f"[EXPORT] Export completed, returning {len(result['Filename'])} training samples")
+    return result
 
 async def create_validation(user: schemas.User, db: orm.Session):
+    print(f"[VALIDATION] Starting validation dataset creation for user {user.id}")
     # Sets validation dataset, maintains 20/80 val-training split
     segments = db.query(models.Segments).filter_by(owner_id=user.id).filter(models.Segments.status == 'Complete').all()
     validation = db.query(models.Segments).filter_by(owner_id=user.id).filter(models.Segments.status == 'Complete').filter(models.Segments.validation == True).all()
+    
+    print(f"[VALIDATION] Found {len(segments)} complete segments")
+    print(f"[VALIDATION] Found {len(validation)} existing validation segments")
 
     def prob(segments, validation, target=0.2):
         p = target - len(validation)/len(segments)
@@ -78,50 +99,77 @@ async def create_validation(user: schemas.User, db: orm.Session):
     
     if len(segments) > 0:
         p = prob(segments, validation)
+        print(f"[VALIDATION] Target validation ratio: 20%, current ratio: {len(validation)/len(segments)*100:.1f}%")
+        print(f"[VALIDATION] Probability for new validation samples: {p}")
     else:
         p = None
+        print(f"[VALIDATION] No segments found, skipping validation assignment")
 
     if p:
+        new_validation_count = 0
         for segment in segments:
             if decision(p): 
                 segment_db = await segment_selector(segment.filename, user, db)
                 segment_db.validation = True
                 db.commit()
                 db.refresh(segment_db)
+                new_validation_count += 1
+        print(f"[VALIDATION] Added {new_validation_count} new validation samples")
+    else:
+        print(f"[VALIDATION] No new validation samples needed")
+    
+    print(f"[VALIDATION] Validation dataset creation completed")
     return segments
 
 async def classifier(user: schemas.User, db: orm.Session, background_task):
+    print(f"[CLASSIFIER] Starting classifier process for user {user.id}")
+    
+    print(f"[CLASSIFIER] Creating validation dataset...")
     await create_validation(user, db)
+    
+    print(f"[CLASSIFIER] Exporting training data...")
     segs = await export(user, db)
 
-    print(len(segs['Filename']))
+    print(f"[CLASSIFIER] Found {len(segs['Filename'])} training samples")
     if len(segs['Filename']) < 10:
+        print(f"[CLASSIFIER] ERROR: Insufficient training data ({len(segs['Filename'])} < 10)")
         raise fastapi.HTTPException(status_code=405, detail="Insufficient training data")
     else:
+        print(f"[CLASSIFIER] Training data sufficient, proceeding with training setup")
         MODEL_PATH = f'./static/{user.id}/model'
         if not os.path.exists(MODEL_PATH):
+            print(f"[CLASSIFIER] Creating model directory: {MODEL_PATH}")
             os.makedirs(MODEL_PATH, exist_ok=True)
+        else:
+            print(f"[CLASSIFIER] Model directory already exists: {MODEL_PATH}")
 
+        print(f"[CLASSIFIER] Getting user labels...")
         classes = await get_labels(user, db)
         labels = []
         for label in classes.keys():
             labels.append(label)
+        print(f"[CLASSIFIER] Found {len(labels)} classes: {labels}")
 
         # Make background task
-        print("training...")
+        print(f"[CLASSIFIER] Adding training pipeline to background task...")
         background_task.add_task(pipeline, user, labels)
+        print(f"[CLASSIFIER] Background training task queued successfully")
 
         # Set all segments to trained
+        print(f"[CLASSIFIER] Updating segment statuses to 'Trained'...")
         segments = db.query(models.Segments).filter_by(owner_id=user.id).filter(models.Segments.status == 'Complete').all()
+        print(f"[CLASSIFIER] Found {len(segments)} segments to mark as trained")
         for segment in segments:
             segment_db = await segment_selector(segment.filename, user, db)
             segment_db.status = "Trained"
             db.commit()
             db.refresh(segment_db)
+        print(f"[CLASSIFIER] All segments marked as trained")
 
         # Update prototypes
-        print("Updating prototypes...")
+        print(f"[CLASSIFIER] Generating prototypes...")
         await prototype_services.generate_supports(user, db)
+        print(f"[CLASSIFIER] Prototypes generated successfully")
 
         # Remove this once training tab not required
         stats = {
@@ -130,7 +178,7 @@ async def classifier(user: schemas.User, db: orm.Session, background_task):
             'val_loss': [1],
             'val_accuracy': [1]
         }
-
+        print(f"[CLASSIFIER] Returning training stats: {stats}")
         return stats
 
 async def prediction(segment, user: schemas.User, db: orm.Session):

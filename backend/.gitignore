@@ -11,3 +11,4 @@ preprocessing/__pycache__/
 /classifier/
 *.pth
 /.vscode
+venv/
