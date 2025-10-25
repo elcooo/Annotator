@@ -75,6 +75,8 @@ export default function Waveform() {
   const [colours, setColours] = useState({})
 
   const [restart, setRestart] = useState(false)
+  const [clickPosition, setClickPosition] = useState(null)
+  const [showRefButton, setShowRefButton] = useState(false)
 
   useEffect(() => {
     // Initial render
@@ -85,8 +87,8 @@ export default function Waveform() {
       cursorColor: '#19468c',
       barWidth: 2,
       barRadius: 1,
-      cursorWidth: 3,
-      height: 450,
+      cursorWidth: 4,
+      height: 600,
       barGap: 2,
       fillParent: true,
       hideScrollbar:true,
@@ -98,7 +100,7 @@ export default function Waveform() {
           wavesurfer: wavesurfer.current,
           container: document.querySelector('#waveform'),
           colorMap: color,
-          height:600
+          height:400
         }),
 
         WaveSurferRegionsPlugin.create({
@@ -231,6 +233,7 @@ export default function Waveform() {
             } 
           }
         })
+
       })
 
       function findNumber(values) {
@@ -334,6 +337,13 @@ export default function Waveform() {
         }
       }
       getRegions()
+      
+      // Handle region click to set reference position from segment
+      wavesurfer.current.on('region-click', function(region, e) {
+        console.log('Region clicked:', region.start)
+        setClickPosition(region.start)
+        setShowRefButton(true)
+      })
     }
   },[audio_file, point, gridFalse])
 
@@ -417,6 +427,34 @@ export default function Waveform() {
     wavesurfer.current.playPause()
   }
 
+
+
+  // Handle creating reference from audio position
+  const handleMakeReference = async () => {
+    if (clickPosition !== null && audio_file !== null) {
+      const requestOptions = {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          filename: audio_file,
+          start_time: clickPosition
+        })
+      }
+      const response = await fetch("http://localhost:8000/api/create-ref-from-audio", requestOptions)
+      if (response.ok) {
+        const data = await response.json()
+        alert(`Reference created: ${data.reference}`)
+        setShowRefButton(false)
+        setClickPosition(null)
+      } else {
+        alert("Failed to create reference")
+      }
+    }
+  }
+
   return (
     <div className="tour-start">
       <div style={{position: "fixed", display:"block", height: "50px", width: "100%", top:"0px", zIndex:50}}>
@@ -492,13 +530,19 @@ export default function Waveform() {
                     <Overlay start={start}
                               end={end}
                               duration={300}/>
+                    
                   </div>
 
-                  <span className={styles.time_panel}>
+                  <span className={styles.time_panel} style={point ? {display:'none'}: {}}>
                     <button className={styles.infoButton} onClick={() => setInfo(!info)}><p className='tour-info'>i</p></button>
                     <div className={styles.container} style={point ? {display:'none'}: {}}>
                       <button onClick={() => toggle()}><img src={playing ? pause_icon : play_icon} alt='play/pause' /></button>
                     </div>
+                    {showRefButton && (
+                      <button onClick={handleMakeReference} className={styles.refButton}>
+                        Make Reference
+                      </button>
+                    )}
                     <div className={region.panel} style={point ? {display:'none'}: {}}>
                       <Timestamps time={time} duration={duration}></Timestamps>
                     </div>

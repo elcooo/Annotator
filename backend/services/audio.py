@@ -238,3 +238,51 @@ async def get_max_confidence(user: schemas.User, db: orm.Session):
         if audio.confidence > max:
             max = audio.confidence
     return max
+
+async def create_ref_from_position(filename: str, start_time: float, user: schemas.User):
+    import soundfile as sf
+    import librosa
+    import os
+    from datetime import datetime
+    
+    try:
+        # Load the parent audio file
+        audio_path = f'./static/{user.id}/audio/{filename}'
+        if not os.path.exists(audio_path):
+            return {"status": "error", "message": "Audio file not found"}
+        
+        audio, sr = librosa.load(audio_path, sr=None)
+        
+        # Calculate sample indices for 1-second extraction
+        start_sample = int(start_time * sr)
+        end_sample = start_sample + sr  # Exactly 1 second
+        
+        # Handle edge case: if position is within last second, adjust to extract final second
+        if start_time > (len(audio) / sr) - 1:
+            start_sample = len(audio) - sr
+            end_sample = len(audio)
+        
+        # Extract 1 second of audio
+        ref_audio = audio[start_sample:end_sample]
+        
+        # Generate unique reference filename - short but unique
+        timestamp = datetime.now().strftime("%H%M%S")
+        ref_filename = f"ref_{int(start_time)}s_{timestamp}.wav"
+        
+        # Ensure ref directory exists
+        ref_dir = f'./static/{user.id}/ref'
+        if not os.path.exists(ref_dir):
+            os.makedirs(ref_dir, exist_ok=True)
+        
+        # Save reference file
+        ref_path = f'{ref_dir}/{ref_filename}'
+        sf.write(ref_path, ref_audio, sr)
+        
+        return {
+            "status": "success", 
+            "reference": ref_filename,
+            "message": "Reference created successfully"
+        }
+        
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to create reference: {str(e)}"}

@@ -266,6 +266,11 @@ async def delete_refs(filename: str, user: schemas.User = fastapi.Depends(user_s
     await audio_services.delete_refs(filename, user)
     return {"messages": "Reference successfully deleted"}
 
+@app.post("/api/create-ref-from-audio", status_code=200)
+async def create_reference_from_audio(data: dict, user: schemas.User = fastapi.Depends(user_services.get_current_user)):
+    result = await audio_services.create_ref_from_position(data["filename"], data["start_time"], user)
+    return result
+
 
 # Export annotations
 @app.get("/api/annotations/{start}/{end}", status_code=200)

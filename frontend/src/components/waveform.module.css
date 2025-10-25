@@ -41,8 +41,9 @@
     align-items: center;
     justify-items: center;
     height: 100px;
-    width: 300px;
+    width: 600px;
     bottom: 0;
+    flex-wrap: wrap;
     /* box-shadow: var(--shadow-high); */
 }
 
@@ -76,4 +77,44 @@
     text-transform: lowercase;
     font-style:italic;
     font-size: 15px;
+}
+
+.refButton {
+    background-color: #2c3e50;
+    color: white;
+    border: 2px solid #34495e;
+    border-radius: 8px;
+    padding: 8px 20px;
+    margin: 0 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    min-width: 250px;
+    white-space: nowrap;
+}
+
+.refButton:hover {
+    background-color: #1a252f;
+    border-color: #2c3e50;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+.refButton:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-medium);
+}
+
+/* Make cursor line more prominent and extend further */
+.waveform canvas {
+    cursor: crosshair;
+}
+
+/* Custom cursor line styling */
+.waveform .wavesurfer-cursor {
+    background-color: #19468c !important;
+    width: 4px !important;
+    z-index: 10 !important;
 }
