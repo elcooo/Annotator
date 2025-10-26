@@ -31,8 +31,10 @@
     width: 100%;
     padding: 20px;
     background-color: var(--foreground-colour);
-    border-radius: 50px 0px 0px 50px;
-    box-shadow: var(--shadow-high-inset);
+    border-radius: 15px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-medium);
+    margin: 10px;
 }
 
 .time_panel {
@@ -90,7 +92,7 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     min-width: 250px;
     white-space: nowrap;
 }
@@ -99,7 +101,7 @@
     background-color: #1a252f;
     border-color: #2c3e50;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
 }
 
 .refButton:active {

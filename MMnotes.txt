@@ -18,7 +18,6 @@ git commands:
     # 3. Work on your changes (edit files, run tests, etc.)
     #    When you want to see what’s changed:
     git status
-    git diff
 
     all good? : yes -> go to step 4
         # 4. If the branch looks good, commit and push (same as before)

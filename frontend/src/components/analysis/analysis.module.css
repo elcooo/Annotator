@@ -1,22 +1,19 @@
 .backdrop {
     width:15%;
     height:100%;
-    background-color: rgba(250, 250, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    /* background-color: var(--background-colour); */
     position: absolute;
-    /* right:0vw; */
     align-items: center;
-    /* justify-content: center; */
     z-index: 100;
     padding: 20px;
     padding-left: 20px;
+    border-right: 2px solid rgba(0, 0, 0, 0.15);
+    box-shadow: 2px 0px 10px rgba(0, 0, 0, 0.1);
 
     display: flex;
     flex-direction: column;
     overflow: auto;
-
-    border-right: 1px black;
 
 }
 
