@@ -39,7 +39,6 @@ def get_correlation(file, audio_data, method=None, w_refs=None, p_refs=None):
     t0 = time()
     if method == 'w':
         data = w.wavelet_segmentation(audio, sr, w_refs, 3)
-        print(data.shape)
     t = time() - t0
     print(f"{methods_names[method]} segmentation executed in {t:.4f}s.")
     return(data)

@@ -33,8 +33,6 @@ async def generate_supports(user: schemas.User, db: orm.Session):
         temp = []
         for support in s[label]:
             if os.path.exists(f'./static/{user.id}/supports/{support.filename[:-4]}.npy'):
-                test = np.load(f'./static/{user.id}/supports/{support.filename[:-4]}.npy', allow_pickle=True)
-                print(test)
                 temp.append(np.load(f'./static/{user.id}/supports/{support.filename[:-4]}.npy', allow_pickle=True)[0])
 
         if len(temp) > 0:
@@ -106,7 +104,6 @@ async def recommend(user: schemas.User, db: orm.Session):
         # Update Segment
         print(f"Updating segment {segment.filename}")
         segment_db = await segment_selector(segment.filename, user, db)
-        print(labels[i][:-4])
         # segment_db.status = "Complete"
         segment_db.label = labels[i][:-4]
         segment_db.confidence = probability[i]

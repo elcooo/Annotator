@@ -85,7 +85,7 @@ def encode(labels, classes):
     return target
 
 
-def train(user, training_set, validation_set, classes, num_epoch=2, batch_size=2):
+def train(user, training_set, validation_set, classes, num_epoch=25, batch_size=12):
     print(f"[TRAIN] Starting training process for user {user.id}")
     print(f"[TRAIN] Training samples: {len(training_set)}, Validation samples: {len(validation_set)}")
     print(f"[TRAIN] Classes: {classes}")
@@ -163,7 +163,7 @@ def train(user, training_set, validation_set, classes, num_epoch=2, batch_size=2
     val_accuracy = [] 
     best_acc = 0
 
-    learning_rate = 1e-6
+    learning_rate = 1e-5
     print(f"[TRAIN] Initial learning rate: {learning_rate}")
 
     # Recommended hyper-parameters - epoch:25, lr:1e-5 (halving every 5 epochs after epoch 10), batch:12
@@ -173,7 +173,7 @@ def train(user, training_set, validation_set, classes, num_epoch=2, batch_size=2
         optimizer = optim.Adam(list(model.parameters()) + list(usermodel.parameters()), lr=learning_rate) # Removed model.parameters()
         print(f"[TRAIN] Optimizer created with learning rate: {learning_rate}")
 
-        if epoch > 2:
+        if epoch > 10 and (epoch - 10) % 5 == 0:
             learning_rate = learning_rate/2
             print(f"[TRAIN] Learning rate reduced to: {learning_rate}")
 
@@ -222,38 +222,48 @@ def train(user, training_set, validation_set, classes, num_epoch=2, batch_size=2
         val_running = 0
         val_total = 0
         val_corrects = 0
+        val_running_accuracy = 0.0  # Initialize validation accuracy
         i = 0
 
-        for data, label in validation_set:
-            data = data.to(device)
-            data = torch.squeeze(data,1)
+        if len(validation_set) == 0:
+            print(f"[TRAIN] No validation samples available, skipping validation phase")
+            val_running_loss = 0.0
+            val_running_accuracy = 0.0
+        else:
+            for data, label in validation_set:
+                data = data.to(device)
+                data = torch.squeeze(data,1)
 
-            embeddings = model(data).logits
-            outputs = usermodel(embeddings)
+                embeddings = model(data).logits
+                outputs = usermodel(embeddings)
 
-            y = encode([label], classes)
-            y = y.to(device)
-            loss = criterion(outputs, y)
+                y = encode([label], classes)
+                y = y.to(device)
+                loss = criterion(outputs, y)
 
-            val_total += len(torch.argmax(y,dim=1))
-            val_corrects += (torch.argmax(y,dim=1) == torch.argmax(outputs,dim=1)).sum()
-            val_running = 100*val_corrects/val_total
-            val_running_accuracy = val_running.item()
+                val_total += len(torch.argmax(y,dim=1))
+                val_corrects += (torch.argmax(y,dim=1) == torch.argmax(outputs,dim=1)).sum()
+                val_running = 100*val_corrects/val_total
+                val_running_accuracy = val_running.item()
 
-            val_running_loss += loss.item()
+                val_running_loss += loss.item()
 
-            GT.append(list(y[0].cpu()).index(1))
-            pred.append(torch.argmax(outputs,dim=1).cpu().item())
+                GT.append(list(y[0].cpu()).index(1))
+                pred.append(torch.argmax(outputs,dim=1).cpu().item())
 
-            if (i % 100 == 1) and (i != 1):
-                print(f"[TRAIN] Val Accuracy: {val_running_accuracy:.2f}, Val loss: {val_running_loss/i:.2f}")
-            i += 1
+                if (i % 100 == 1) and (i != 1):
+                    print(f"[TRAIN] Val Accuracy: {val_running_accuracy:.2f}, Val loss: {val_running_loss/i:.2f}")
+                i += 1
 
         val_loss.append(val_running_loss)
         val_accuracy.append(val_running_accuracy)
-        print(f"[TRAIN] Validation phase completed - Final Val Accuracy: {val_running_accuracy:.2f}, Final Val Loss: {val_running_loss/len(validation_set):.2f}")
         
-        print(f'[TRAIN] EPOCH {epoch + 1} SUMMARY - Training Accuracy: {accuracy:.2f}, Training loss: {running_loss/len(training_set):.2f}, Val Accuracy: {val_running_accuracy:.2f}, Val loss: {val_running_loss/len(validation_set):.2f}')
+        if len(validation_set) > 0:
+            print(f"[TRAIN] Validation phase completed - Final Val Accuracy: {val_running_accuracy:.2f}, Final Val Loss: {val_running_loss/len(validation_set):.2f}")
+            print(f'[TRAIN] EPOCH {epoch + 1} SUMMARY - Training Accuracy: {accuracy:.2f}, Training loss: {running_loss/len(training_set):.2f}, Val Accuracy: {val_running_accuracy:.2f}, Val loss: {val_running_loss/len(validation_set):.2f}')
+        else:
+            print(f"[TRAIN] Validation phase skipped - No validation samples")
+            print(f'[TRAIN] EPOCH {epoch + 1} SUMMARY - Training Accuracy: {accuracy:.2f}, Training loss: {running_loss/len(training_set):.2f}, Val Accuracy: N/A, Val loss: N/A')
 
         if (val_running_accuracy > best_acc):
             best_acc = val_running_accuracy
@@ -343,7 +353,7 @@ def embeddings(filename, user, target_rate=16000):
         return embeddings
 
 
-def pipeline(user, classes):
+def pipeline(user, classes, num_epoch=25, batch_size=12):
     print(f"[PIPELINE] Starting training pipeline for user {user.id}")
     print(f"[PIPELINE] Classes to train: {classes}")
     
@@ -362,7 +372,7 @@ def pipeline(user, classes):
     print(f"[PIPELINE] Validation dataset created with {len(validation)} samples")
     
     print(f"[PIPELINE] Starting model training...")
-    loss, acc, val_loss, val_acc = train(user, training, validation, classes)
+    loss, acc, val_loss, val_acc = train(user, training, validation, classes, num_epoch, batch_size)
     print(f"[PIPELINE] Training completed successfully")
 
     return loss, acc, val_loss, val_acc

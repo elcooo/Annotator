@@ -29,6 +29,12 @@ export default function Export() {
     const [exportStart, setExportStart] = useState('2020-01-01')
     const [exportEnd, setExportEnd] = useState('2200-01-01')
     const [message, setMessage] = useState('')
+    const [isTraining, setIsTraining] = useState(false)
+    
+    // Training parameters
+    const [numEpochs, setNumEpochs] = useState(25)
+    const [batchSize, setBatchSize] = useState(12)
+    
     const [stats, setTrainingStats] = useState({
         labels: null,
         datasets: [{
@@ -51,39 +57,76 @@ export default function Export() {
     const [valAccuracy, setValAcc] = useState(null)
 
     const options = {
+        responsive: true,
+        maintainAspectRatio: false,
         scales: {
             y: {
-            type: 'linear',
-            display: true,
-            position: 'left',
-            height: null,
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: {
+                    display: true,
+                    text: 'Loss'
+                }
             },
             y1: {
                 type: 'linear',
                 display: true,
                 position: 'right',
-                min:0, 
-                max:100.0,
-                scaleLabel: 'Accuracy',
-                height: null,
+                min: 0, 
+                max: 100.0,
+                title: {
+                    display: true,
+                    text: 'Accuracy (%)'
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: 'Epoch'
+                }
+            }
+        },
+        plugins: {
+            title: {
+                display: true,
+                text: 'Training Progress'
+            },
+            legend: {
+                display: true,
+                position: 'top'
             }
         }
     }
 
     const display = (data) => {
+        // Check if we have valid data arrays
+        if (!data || !data.loss || !data.accuracy || !data.val_loss || !data.val_accuracy) {
+            console.log("Invalid data received for display:", data)
+            return
+        }
+
+        // Ensure all arrays have the same length
+        const maxLength = Math.max(
+            data.loss.length,
+            data.accuracy.length,
+            data.val_loss.length,
+            data.val_accuracy.length
+        )
+
         setTrainingStats({
-            labels: [...Array(data['loss'].length).keys()],
+            labels: [...Array(maxLength).keys()],
             datasets: [
               {
                 label: "Loss",
-                data: data['loss'],
+                data: data.loss,
                 backgroundColor: "rgba(75,192,192,0.2)",
                 borderColor: "rgba(75,192,192,1)",
                 yAxisID: 'y'
               },
               {
                 label: "Accuracy",
-                data: data['accuracy'],
+                data: data.accuracy,
                 backgroundColor: "#742774",
                 borderColor: "#742774",
                 yAxisID: 'y1'
@@ -92,18 +135,18 @@ export default function Export() {
           })
 
         setValStats({
-        labels: [...Array(data['val_loss'].length).keys()],
+        labels: [...Array(maxLength).keys()],
         datasets: [
             {
             label: "Validation Loss",
-            data: data['val_loss'],
+            data: data.val_loss,
             backgroundColor: "rgba(75,192,192,0.2)",
             borderColor: "rgba(75,192,192,1)",
             yAxisID: 'y'
             },
             {
             label: "Validation Accuracy",
-            data: data['val_accuracy'],
+            data: data.val_accuracy,
             backgroundColor: "#742774",
             borderColor: "#742774",
             yAxisID: 'y1'
@@ -136,36 +179,51 @@ export default function Export() {
     }
 
     const handleTraining = async () => {
+        setIsTraining(true)
+        setMessage('Starting training...')
+        
         const requestOptions = {
-            method: "GET",
-            headers: {Authorization: "Bearer " + token}
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify({
+                num_epoch: numEpochs,
+                batch_size: batchSize
+            })
         }
 
-        const response = await fetch(`http://localhost:8000/api/test/train`, requestOptions)
+        try {
+            const response = await fetch(`http://localhost:8000/api/test/train`, requestOptions)
 
-        if (response.ok) {
-            console.log("Model trained!")
-            const data = await response.json()
-            display(data)
-            setLoss(data['loss'])
-            setAcc(data['accuracy'])
-            setValLoss(data['val_loss'])
-            setValAcc(data['val_accuracy'])
-
-            // Change audio status too prevent data leaks
-            // const requestOptions = {
-            //     method: "POST",
-            //     headers: {Authorization: "Bearer " + token}
-            // }
-    
-            // const status = await fetch(`http://localhost:8000/api/change_status/${exportStart}/${exportEnd}`, requestOptions)
-            // if (status.ok) {
-            //     setUpdate(!update)
-            // }
-
-        } else {
-            console.log(response)
-            setMessage('Insufficient training data')
+            if (response.ok) {
+                console.log("Model trained!")
+                const data = await response.json()
+                console.log("Training data received:", data)
+                
+                // Check if we have valid training data
+                if (data && data.loss && data.accuracy && data.val_loss && data.val_accuracy) {
+                    display(data)
+                    setLoss(data['loss'])
+                    setAcc(data['accuracy'])
+                    setValLoss(data['val_loss'])
+                    setValAcc(data['val_accuracy'])
+                    setMessage(`Training completed successfully! (${numEpochs} epochs, batch size: ${batchSize})`)
+                } else {
+                    console.log("Invalid training data received:", data)
+                    setMessage('Training completed but no valid data received')
+                }
+            } else {
+                const errorText = await response.text()
+                console.log("Training failed:", response.status, errorText)
+                setMessage(`Training failed: ${response.status} - ${errorText}`)
+            }
+        } catch (error) {
+            console.error("Training error:", error)
+            setMessage(`Training error: ${error.message}`)
+        } finally {
+            setIsTraining(false)
         }
     }
 
@@ -212,11 +270,54 @@ export default function Export() {
                 <h1>Training</h1>
                 <h3>The model will only be trained on audio marked as "Complete" and within the date range</h3>
 
+                {/* Training Parameters */}
+                <div className={styles.trainingParams}>
+                    <h3>Training Parameters</h3>
+                    <div className={styles.paramRow}>
+                        <div className={styles.paramGroup}>
+                            <label htmlFor="epochs">Number of Epochs:</label>
+                            <input 
+                                type="number" 
+                                id="epochs"
+                                min="1" 
+                                max="100" 
+                                value={numEpochs} 
+                                onChange={(e) => setNumEpochs(parseInt(e.target.value) || 25)}
+                                disabled={isTraining}
+                            />
+                            <small>Recommended: 25 (default)</small>
+                        </div>
+                        <div className={styles.paramGroup}>
+                            <label htmlFor="batchSize">Batch Size:</label>
+                            <input 
+                                type="number" 
+                                id="batchSize"
+                                min="1" 
+                                max="32" 
+                                value={batchSize} 
+                                onChange={(e) => setBatchSize(parseInt(e.target.value) || 12)}
+                                disabled={isTraining}
+                            />
+                            <small>Recommended: 12 (default)</small>
+                        </div>
+                    </div>
+                    <div className={styles.paramInfo}>
+                        <p><strong>Learning Rate:</strong> 1e-5 (automatically halves every 5 epochs after epoch 10)</p>
+                        <p><strong>Current Settings:</strong> {numEpochs} epochs, batch size {batchSize}</p>
+                    </div>
+                </div>
+
                 <div className={styles.graph}><Line options={options} data={stats}/></div>
                 <div className={styles.graph}><Line options={options} data={valStats}/></div>
 
                 <span className={styles.row}>
-                    <div className={styles.button} onClick={() => handleTraining()}>TRAIN</div>
+                    <div 
+                        className={`${styles.button} ${isTraining ? styles.disabled : ''}`} 
+                        onClick={isTraining ? null : () => handleTraining()}
+                        style={{opacity: isTraining ? 0.6 : 1, cursor: isTraining ? 'not-allowed' : 'pointer'}}
+                    >
+                        {isTraining ? 'TRAINING...' : 'TRAIN'}
+                    </div>
                     <div className={styles.button} onClick={() => handleModelExport()}>EXPORT MODEL</div>
                 </span>
                 <h3>{message}</h3>

@@ -110,10 +110,14 @@ async def create_validation(user: schemas.User, db: orm.Session):
         for segment in segments:
             if decision(p): 
                 segment_db = await segment_selector(segment.filename, user, db)
-                segment_db.validation = True
-                db.commit()
-                db.refresh(segment_db)
-                new_validation_count += 1
+                if segment_db:
+                    segment_db.validation = True
+                    db.commit()
+                    db.refresh(segment_db)
+                    new_validation_count += 1
+                    print(f"[VALIDATION] Marked segment {segment.filename} as validation")
+                else:
+                    print(f"[VALIDATION] Warning: Could not find segment {segment.filename} in database")
         print(f"[VALIDATION] Added {new_validation_count} new validation samples")
     else:
         print(f"[VALIDATION] No new validation samples needed")
@@ -121,7 +125,7 @@ async def create_validation(user: schemas.User, db: orm.Session):
     print(f"[VALIDATION] Validation dataset creation completed")
     return segments
 
-async def classifier(user: schemas.User, db: orm.Session, background_task):
+async def classifier(user: schemas.User, db: orm.Session, num_epoch=25, batch_size=12):
     print(f"[CLASSIFIER] Starting classifier process for user {user.id}")
     
     print(f"[CLASSIFIER] Creating validation dataset...")
@@ -150,36 +154,41 @@ async def classifier(user: schemas.User, db: orm.Session, background_task):
             labels.append(label)
         print(f"[CLASSIFIER] Found {len(labels)} classes: {labels}")
 
-        # Make background task
-        print(f"[CLASSIFIER] Adding training pipeline to background task...")
-        background_task.add_task(pipeline, user, labels)
-        print(f"[CLASSIFIER] Background training task queued successfully")
+        # Run training synchronously to get real-time results
+        print(f"[CLASSIFIER] Starting training pipeline...")
+        try:
+            loss, acc, val_loss, val_acc = pipeline(user, labels, num_epoch, batch_size)
+            print(f"[CLASSIFIER] Training completed successfully")
+            
+            # Set all segments to trained
+            print(f"[CLASSIFIER] Updating segment statuses to 'Trained'...")
+            segments = db.query(models.Segments).filter_by(owner_id=user.id).filter(models.Segments.status == 'Complete').all()
+            print(f"[CLASSIFIER] Found {len(segments)} segments to mark as trained")
+            for segment in segments:
+                segment_db = await segment_selector(segment.filename, user, db)
+                segment_db.status = "Trained"
+                db.commit()
+                db.refresh(segment_db)
+            print(f"[CLASSIFIER] All segments marked as trained")
 
-        # Set all segments to trained
-        print(f"[CLASSIFIER] Updating segment statuses to 'Trained'...")
-        segments = db.query(models.Segments).filter_by(owner_id=user.id).filter(models.Segments.status == 'Complete').all()
-        print(f"[CLASSIFIER] Found {len(segments)} segments to mark as trained")
-        for segment in segments:
-            segment_db = await segment_selector(segment.filename, user, db)
-            segment_db.status = "Trained"
-            db.commit()
-            db.refresh(segment_db)
-        print(f"[CLASSIFIER] All segments marked as trained")
+            # Update prototypes
+            print(f"[CLASSIFIER] Generating prototypes...")
+            await prototype_services.generate_supports(user, db)
+            print(f"[CLASSIFIER] Prototypes generated successfully")
 
-        # Update prototypes
-        print(f"[CLASSIFIER] Generating prototypes...")
-        await prototype_services.generate_supports(user, db)
-        print(f"[CLASSIFIER] Prototypes generated successfully")
-
-        # Remove this once training tab not required
-        stats = {
-            'loss': [1],
-            'accuracy': [1],
-            'val_loss': [1],
-            'val_accuracy': [1]
-        }
-        print(f"[CLASSIFIER] Returning training stats: {stats}")
-        return stats
+            # Return real training statistics
+            stats = {
+                'loss': loss,
+                'accuracy': acc,
+                'val_loss': val_loss,
+                'val_accuracy': val_acc
+            }
+            print(f"[CLASSIFIER] Returning real training stats: {stats}")
+            return stats
+            
+        except Exception as e:
+            print(f"[CLASSIFIER] Training failed with error: {e}")
+            raise fastapi.HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
 
 async def prediction(segment, user: schemas.User, db: orm.Session):
     classes = await get_labels(user, db)

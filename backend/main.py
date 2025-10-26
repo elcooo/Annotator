@@ -457,12 +457,23 @@ async def getChildren(parent:str, user: schemas.User = fastapi.Depends(user_serv
 
 
 # Classifier Test Training and Export Endpoints
-@app.get('/api/test/train', status_code=200)
-async def train(background_task: BackgroundTasks ,user: schemas.User = fastapi.Depends(user_services.get_current_user), db: orm.Session = fastapi.Depends(user_services.get_db)):
+@app.post('/api/test/train', status_code=200)
+async def train(
+    training_params: dict = None,
+    user: schemas.User = fastapi.Depends(user_services.get_current_user), 
+    db: orm.Session = fastapi.Depends(user_services.get_db)
+):
     print(f"[TRAIN ENDPOINT] Starting training process for user {user.id}")
     print(f"[TRAIN ENDPOINT] User email: {user.email}")
-    stats = await classifier.classifier(user, db, background_task)
-    print(f"[TRAIN ENDPOINT] Training process initiated successfully")
+    
+    # Extract training parameters with defaults
+    num_epoch = training_params.get('num_epoch', 25) if training_params else 25
+    batch_size = training_params.get('batch_size', 12) if training_params else 12
+    
+    print(f"[TRAIN ENDPOINT] Training parameters - Epochs: {num_epoch}, Batch size: {batch_size}")
+    
+    stats = await classifier.classifier(user, db, num_epoch, batch_size)
+    print(f"[TRAIN ENDPOINT] Training process completed successfully")
     return stats
 
 @app.get('/api/test/predict', status_code=200)
