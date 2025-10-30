@@ -1,5 +1,9 @@
 #login m@mm.com 123456
+2:11:README.md
 # Listening Lab - Annotator
+
+> **Note:** This repository republishes the Listening Lab Annotator project maintained by the University of Canterbury’s Listening Lab Bioacoustics Research group. The upstream source of truth lives at https://github.com/listening-lab/Annotator. Full credit for the original implementation goes to the Listening Lab team; this fork only republishes their work and documents any local adjustments below.
+
 The listening lab is an open-source platform for audio annotation of less vocal and typically more challenging species. 
 
 This tool allows you to:
