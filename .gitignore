@@ -1,1 +1,15 @@
+__pycache__/
+preprocessing/__pycache__/
+/static/
+/statics/
+/static_points/
+/static_original/
+*.db*
+.env
+*.cpython
+*/__pycache__/*
+/classifier/
+*.pth
+/.vscode
+venv/
 MMnotes.txt
