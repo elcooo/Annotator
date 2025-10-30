@@ -38,6 +38,20 @@
     background-color: white;
 }
 
+.wavesurfer-region::before {
+    content: attr(data-confidence);
+    position: absolute;
+    top: 30px;
+    left: 0px;
+    transform: rotate(-90deg);
+    transform-origin: top left;
+    font-size: 18px;
+    font-weight: 700;
+    color: #bb0b0ba4;
+    letter-spacing: 1px;
+    pointer-events: none;
+}
+
 .overlay {
     position: absolute;
     width: 22vw;
@@ -45,7 +59,7 @@
     background: radial-gradient(rgba(235, 230, 230, 0.85), rgba(236, 236, 236, 0.3));
     backdrop-filter: blur(10px);
     border-radius: 12px;
-    border: 2px solid rgba(0, 0, 0, 0.1);
+    border: 2px solid rgb(255, 6, 6);
     z-index: 7;
 
     display: flex;
@@ -130,6 +144,20 @@
     display: flex;
     justify-content: right;
     pointer-events: none;
+}
+
+.card_badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+    user-select: none;
+    z-index: 60;
 }
 
 .info_button {

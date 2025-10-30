@@ -48,8 +48,9 @@ def get_binary(data, method, threshold):
     binary = None
     # threshold = method_thresholds[method] * ratio
     if method == 'w':
-        binary, correlation = w.wavelet_binary(data, threshold)
-    return binary, correlation
+        binary, correlation, thr_per_ref = w.wavelet_binary(data, threshold)
+        return binary, correlation, thr_per_ref
+    return binary, None, None
 
 def slice_audio(audio_dict, binary_dict, correlation_dict, files, id):
     if not os.path.exists(f'./static/{id}/seg/'):
@@ -85,6 +86,10 @@ def slice_audio(audio_dict, binary_dict, correlation_dict, files, id):
         filtered_regions = []
         filtered_corrs = []
         region_num = 0
+        # correlation_dict now stores a tuple: (correlation_matrix, thr_per_ref)
+        c, thr_per_ref = correlation_dict[file]
+        thr_baseline = float(np.max(thr_per_ref)) if thr_per_ref is not None else 1.0
+
         for region in regions:
             start, stop = region
             if stop > start:
@@ -97,7 +102,11 @@ def slice_audio(audio_dict, binary_dict, correlation_dict, files, id):
                 if d_stop > duration:
                     d_start -= (d_stop-duration)
                     d_stop -= (d_stop-duration)
-                filtered_corrs.append(np.max(correlation_dict[file][int(np.floor(d_start)):int(np.floor(d_stop))]))
+                # Raw max correlation within dilated window
+                raw_max = np.max(c[int(np.floor(d_start)):int(np.floor(d_stop))])
+                # Normalize to 0–1 as percent above threshold baseline: (raw/thr) - 1, clipped [0,1]
+                confidence_01 = max(0.0, min(1.0, (raw_max / thr_baseline) - 1.0))
+                filtered_corrs.append(confidence_01)
                 filtered_regions.append((d_start, d_stop, region_num))
                 region_num += 1
         print(f'{file}:{filtered_regions}')
@@ -152,13 +161,14 @@ def get_regions(userID, files, audio_data, refs, method='w', threshold=4.5):
     #Load or generate segmentation data
     for file in files:
         correlation = get_correlation(file, audio_data, method, w_ref)
-        
+
         # Generate binaries
         # m = w.noise_mask(audio_data, file)
-        b, c = get_binary(correlation, method, threshold)
+        b, c, thr_per_ref = get_binary(correlation, method, threshold)
         # b = np.logical_and(b[:,0],m)
         binary_dict[file] = b
-        correlation_dict[file] = c
+        # Store correlation matrix and thresholds together
+        correlation_dict[file] = (c, thr_per_ref)
     
     count, segments, regions, correlations = slice_audio(audio_data, binary_dict, correlation_dict, files, userID)
         

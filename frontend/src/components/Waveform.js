@@ -78,6 +78,40 @@ export default function Waveform() {
   const [clickPosition, setClickPosition] = useState(null)
   const [showRefButton, setShowRefButton] = useState(false)
 
+  // Helper: show label and confidence (0–1) on region element
+  const renderRegionBadge = (region) => {
+    if (!region || !region.element) return
+    let badge = region.element.querySelector('.region-badge')
+    if (!badge) {
+      badge = document.createElement('div')
+      badge.className = 'region-badge'
+      Object.assign(badge.style, {
+        position: 'absolute',
+        top: '20px',
+        left: '-2px',
+        transform: 'rotate(-90deg)',
+        background: 'rgba(0,0,0,0.7)',
+        color: '#fff',
+        fontSize: '16px',
+        padding: '5px 2px',
+        borderRadius: '2px',
+        pointerEvents: 'none',
+        userSelect: 'none'
+      })
+
+
+
+
+
+
+      region.element.appendChild(badge)
+    }
+    const c = region.attributes?.confidence
+    const lbl = region.attributes?.label || region.data || 'unknown'
+    const confText = typeof c === 'number' ? c.toFixed(2) : ''
+    badge.textContent = `${confText}`
+  }
+
   useEffect(() => {
     // Initial render
     wavesurfer.current = WaveSurfer.create({
@@ -201,9 +235,11 @@ export default function Waveform() {
                             "filename": region_name,
                             "x": 0,
                             "y": 0, 
-                            "status": 'new'},
+                            "status": 'new',
+                            "label": 'unknown'},
               color: `${colours['unknown']}`,
             });
+            renderRegionBadge(region)
             setEditRegion(region)
             console.log(`${region.attributes.filename} created`)
             const regionCreate = async () => {
@@ -290,6 +326,7 @@ export default function Waveform() {
         setEnd(region.end)
         setLabel(region.data)
         setEditRegion(region)
+        renderRegionBadge(region)
       })
 
       // Handle play/pause of audio
@@ -316,8 +353,8 @@ export default function Waveform() {
           const data = await response.json()
           wavesurfer.current.clearRegions()
           for (const region of data) {
-            if (region.confidence) {
-              wavesurfer.current.addRegion({
+            if (region.confidence !== undefined && region.confidence !== null) {
+              const r = wavesurfer.current.addRegion({
                 start: region.start,
                 end: region.end,
                 data: region.label,
@@ -332,6 +369,7 @@ export default function Waveform() {
                 color: `${colours[region.label]}`,
                 drag: true
               })
+              renderRegionBadge(r)
             }
           }
         }

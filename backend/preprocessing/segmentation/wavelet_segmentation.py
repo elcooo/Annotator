@@ -66,14 +66,16 @@ def wavelet_segmentation(audio, sampleRate, ref_coeffs_list, wave_dec_level):
 
 def wavelet_binary(correlations, threshold):
     # Compute regions
-    binary_maps = np.zeros(np.shape(correlations))    
+    binary_maps = np.zeros(np.shape(correlations))
+    thr_per_ref = []
     for i in range(np.shape(correlations)[0]):
         thr = max(threshold * np.mean(correlations[i,:,:]), 0)
+        thr_per_ref.append(thr)
         binary_maps[i,:,:] = correlations[i,:,:] > thr
     binary_sum = np.array(binary_maps.sum(0) > 0)
     cor_max = np.amax(correlations, 0)
     # plot_data(cor_max, binary_sum)
-    return binary_sum, cor_max
+    return binary_sum, cor_max, np.array(thr_per_ref)
 
 def noise_mask(audio_data, file):
     audio, _ = audio_data[file]

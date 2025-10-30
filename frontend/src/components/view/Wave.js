@@ -248,6 +248,9 @@ export default function Wave({index, audio, setGrid, setAudio, handlePointClick,
              onClick={(e) => handleLabel(e)}>
 
             <div className='info_container' >
+                <div className='card_badge'>
+                    {label} {typeof audio?.confidence === 'number' ? `• ${audio.confidence.toFixed(2)}` : ''}
+                </div>
                 {info ? <div className='info_panel'>
                     <h1>{label}</h1>
                     <button className='info' onClick={(e) => handleAudio(e)}>View Recording</button>
