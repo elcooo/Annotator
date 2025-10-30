@@ -214,6 +214,20 @@ async def upload_audio(files: list[UploadFile],
     response = await audio_services.upload_audio(user, db, files, downsample, denoise, segment, predict, threshold)
     return response
 
+@app.post("/api/reprocess-audio", status_code=200)
+async def reprocess_audio(payload: dict, 
+                          user: schemas.User = fastapi.Depends(user_services.get_current_user), 
+                          db: orm.Session = fastapi.Depends(user_services.get_db)):
+    filenames = payload.get("filenames", [])
+    downsample = payload.get("downsample", True)
+    denoise = payload.get("denoise", True)
+    segment = payload.get("segment", True)
+    predict = payload.get("predict", False)
+    threshold = payload.get("threshold", 4.5)
+
+    response = await audio_services.reprocess_audio(user, db, filenames, downsample, denoise, segment, predict, threshold)
+    return response
+
 @app.get("/api/get-audio-files/{tag}", status_code=200)
 async def get_audio_files(tag='testing', user: schemas.User = fastapi.Depends(user_services.get_current_user), db: orm.Session = fastapi.Depends(user_services.get_db)):
     filenames = await audio_services.get_audio_files(tag, user=user, db=db)

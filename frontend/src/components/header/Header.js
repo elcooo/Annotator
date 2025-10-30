@@ -1,12 +1,14 @@
 import React, { /*useContext, */useState, useEffect } from 'react'
 // import { UserContext } from "../../context/UserContext"
-import { settings_icon, listening_lab, grid_icon, wave_icon, training_icon } from '../../utils/icons'
+import { settings_icon, listening_lab, grid_icon, wave_icon, training_icon, reprocess_icon } from '../../utils/icons'
 import styles from './header.module.css'
 import Training from './Training'
 import Settings from './Settings' 
+import ReprocessDialog from './ReprocessDialog'
 
 export default function Header({token, wavesurfer, grid, setGrid, gridFalse, setGridFalse, tag, setTag, search, setSearch, setEditRegion, classes, setClasses, setColours, restart, setRestart, settings, setSettings, training, setTraining}) {
     const [options, setOptions] = useState(['All'])
+    const [reprocessOpen, setReprocessOpen] = useState(false)
     // const [training, setTraining] = useState(false)
     // const [settings, setSettings] = useState(false)
     useEffect(() => {
@@ -62,6 +64,12 @@ export default function Header({token, wavesurfer, grid, setGrid, gridFalse, set
         setSettings(false)
     }
 
+    const reprocessClick = () => {
+        setReprocessOpen(true)
+        setSettings(false)
+        setTraining(false)
+    }
+
     return (
         <div className={styles.header}>
             <span style={{position: "absolute", width: "400px", left: "0px", margin: "20px", display: "flex", flexDirection: 'row'}}><h1 className={styles.name}>|</h1><h3 className={styles.version}>LISTENING LAB</h3></span>         
@@ -82,6 +90,7 @@ export default function Header({token, wavesurfer, grid, setGrid, gridFalse, set
                     < Training />
                 </div>
             </div>
+            <div className={styles.menu}><img className='tour-reprocess' src={reprocess_icon} alt='reprocess' onClick={() => reprocessClick()}></img></div>
             <div className={styles.menu}><img className='tour-settings' src={settings_icon} alt='settings' onClick={() => settingsClick()}></img>
                 <div className={styles.console} style={!settings ? {display: "none"} : {display: "block"}}>
                     < Settings wavesurfer={wavesurfer} classes={classes} setClasses={setClasses} setColours={setColours} restart={restart} setRestart={setRestart}/>
@@ -89,6 +98,7 @@ export default function Header({token, wavesurfer, grid, setGrid, gridFalse, set
             </div>
             <button className={styles.logout} onClick={() => handleLogout()}>Logout</button>
             <img src={listening_lab} style={{width: "40px", margin: "20px"}} alt='logo'></img>
+            {reprocessOpen ? <ReprocessDialog token={token} onClose={() => setReprocessOpen(false)} /> : null}
         </div>
     )
 }

@@ -129,6 +129,44 @@ async def upload_audio(user: schemas.User, db: orm.Session, files: list[UploadFi
                 print(f"File {file.filename} already exists")
                 return fastapi.HTTPException(status_code=404, detail=f"File {file.filename} already exists")
 
+async def reprocess_audio(user: schemas.User, db: orm.Session, filenames: list[str], downsample: bool, denoise: bool, genSegments: bool, predictRegion: bool, threshold: float = 4.5):
+    results = []
+    target_rate = 16000
+
+    class DummyFile:
+        def __init__(self, filename: str):
+            self.filename = filename
+
+    for filename in filenames:
+        try:
+            audio_path = f"./static/{user.id}/audio/{filename}"
+            if not os.path.exists(audio_path):
+                results.append({"filename": filename, "status": "error", "detail": "Audio file not found"})
+                continue
+
+            audio, sampleRate = librosa.load(audio_path, sr=None)
+
+            if downsample and sampleRate != target_rate:
+                audio = librosa.resample(audio, orig_sr=sampleRate, target_sr=target_rate, res_type='fft')
+                sampleRate = target_rate
+
+            audio = await denoiseAudio(audio, sampleRate, filename, user.id, denoise)
+
+            if np.shape(audio)[0] < 300 * sampleRate:
+                zeroArray = np.zeros(300 * sampleRate - np.shape(audio)[0])
+                audio = np.concatenate((audio, zeroArray))
+
+            if genSegments:
+                await delete_segments(filename, user, db)
+                data = {"filename": filename}
+                await generate_segments(DummyFile(filename), audio, sampleRate, data, predictRegion, user, db, threshold)
+
+            results.append({"filename": filename, "status": "ok"})
+        except Exception as e:
+            results.append({"filename": filename, "status": "error", "detail": str(e)})
+
+    return {"results": results}
+
 async def get_audio_files(tag, user: schemas.User, db: orm.Session):
     if tag == "All":
         files = db.query(models.Audio).filter_by(owner_id=user.id).all()
