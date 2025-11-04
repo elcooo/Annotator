@@ -58,3 +58,13 @@ Feel free to contribute to this project or adapt it for your application.
 
 ### Bug fixes
 - Prototype removed when label removed and unknown prototype not included at inference
+
+
+## Run Commandas:
+### Backend: 
+- cd to backend dir
+- run in terminal: uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+### Frontend:
+- cd to frontend dir
+- run in terminal: npm run start
